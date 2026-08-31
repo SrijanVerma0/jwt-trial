@@ -2,7 +2,7 @@ from fastapi import APIRouter,Depends,HTTPException
 from sqlmodel import Session
 from sqlalchemy import select
 
-from db import User,get_session,hash_password,verify_password,create_access_token
+from db import User,get_session,hash_password,verify_password,create_access_token,create_refresh_token
 
 router = APIRouter()
 
@@ -33,7 +33,8 @@ def login(username:str,password:str,session:Session = Depends(get_session)):
     if not verify_password(password,user.hashed_password):
         raise HTTPException(status_code = 400,detail = "incorrect username or password")
     access_token = create_access_token(data = {"sub":username})
-    return {"access_token" : access_token ,"token_type": "bearer"}
+    refresh_token = create_refresh_token(data={"sub":username})
+    return {"access_token" : access_token ,"token_type": "bearer","refresh_token":refresh_token}
 
     
 
@@ -63,3 +64,19 @@ def get_profile(current_user: str = Depends(verify_token)):
     return {"message": f"Hello {current_user}, your token is active and valid!"}
 
    
+@router.post("/refresh")
+def refresh_token(refresh_token:str):
+    try:
+        payload = jwt.decode(refresh_token,SECRET_KEY,algorithms=[ALGORITHM])
+        token_type = payload.get("type")
+        username = payload.get("sub")
+        if token_type != "refresh" or username == None:
+            raise HTTPException(status_code=401,detail="Invalid token type")
+        new_access_token = create_access_token(data = 
+        {"sub":username})
+        return{
+            "access_token":new_access_token,
+            "token_type":"bearer"
+        }
+    except:
+        raise HTTPException(status_code=401, detail="Refresh token expired or invalid! Please login again.")
